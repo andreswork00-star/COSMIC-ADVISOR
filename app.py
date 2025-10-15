@@ -581,4 +581,118 @@ def main():
         
         backtest_cols = st.columns(3)
         with backtest_cols[0]:
-            st.metric("Initial
+            st.metric("Initial Investment", f"${initial_investment:,}")
+        with backtest_cols[1]:
+            st.metric("Final Value", f"${portfolio_values[-1]:,.0f}",
+                     delta=f"{total_return:+.1f}%")
+        with backtest_cols[2]:
+            st.metric("Annualized Return", f"{annualized_return:.1f}%")
+        
+        fig_backtest = go.Figure()
+        
+        fig_backtest.add_trace(go.Scatter(
+            x=years_list,
+            y=portfolio_values,
+            mode='lines+markers',
+            name=f'Your Portfolio ({stock_pct}/{bond_pct})',
+            line=dict(color='#800020', width=3),
+            marker=dict(size=8)
+        ))
+        
+        stocks_only_values = [initial_investment]
+        stocks_only = initial_investment
+        for stock_return in period_data["stocks"]:
+            stocks_only = stocks_only * (1 + stock_return/100)
+            stocks_only_values.append(stocks_only)
+        
+        fig_backtest.add_trace(go.Scatter(
+            x=years_list,
+            y=stocks_only_values,
+            mode='lines+markers',
+            name='100% Stocks',
+            line=dict(color='#89CFF0', width=2, dash='dash'),
+            marker=dict(size=6)
+        ))
+        
+        bonds_only_values = [initial_investment]
+        bonds_only = initial_investment
+        for bond_return in period_data["bonds"]:
+            bonds_only = bonds_only * (1 + bond_return/100)
+            bonds_only_values.append(bonds_only)
+        
+        fig_backtest.add_trace(go.Scatter(
+            x=years_list,
+            y=bonds_only_values,
+            mode='lines+markers',
+            name='100% Bonds',
+            line=dict(color='#2ca02c', width=2, dash='dash'),
+            marker=dict(size=6)
+        ))
+        
+        fig_backtest.update_layout(
+            title=f"Historical Performance: {selected_period}",
+            xaxis_title="Year",
+            yaxis_title="Portfolio Value ($)",
+            hovermode='x unified',
+            height=450,
+            yaxis_tickformat='$,.0f',
+            paper_bgcolor='rgba(0,0,0,0)',
+            font_color='white'
+        )
+        
+        st.plotly_chart(fig_backtest, use_container_width=True)
+        
+        stocks_return = ((stocks_only_values[-1] - initial_investment) / initial_investment) * 100
+        bonds_return = ((bonds_only_values[-1] - initial_investment) / initial_investment) * 100
+        
+        st.markdown("Performance Summary:")
+        summary_df = pd.DataFrame({
+            'Strategy': [f'Your Portfolio ({stock_pct}/{bond_pct})', '100% Stocks', '100% Bonds'],
+            'Final Value': [f"${portfolio_values[-1]:,.0f}", f"${stocks_only_values[-1]:,.0f}", f"${bonds_only_values[-1]:,.0f}"],
+            'Total Return': [f"{total_return:.1f}%", f"{stocks_return:.1f}%", f"{bonds_return:.1f}%"],
+            'Risk Level': ['Balanced', 'High', 'Low']
+        })
+        st.dataframe(summary_df, hide_index=True)
+        
+        st.info(f"""
+        During {selected_period}, your {stock_pct}/{bond_pct} allocation provided 
+        {"better" if total_return > bonds_return else "similar"} returns {"with less volatility than 100% stocks" if stock_pct < 100 else "but with higher volatility"}.
+        Diversification helps smooth out market turbulence while still capturing growth.
+        """)
+    
+    st.header("Key Assumptions & Disclaimers")
+    
+    assumptions_col1, assumptions_col2 = st.columns(2)
+    
+    with assumptions_col1:
+        st.subheader("Assumptions")
+        st.write("Stock market return: 7% annually")
+        st.write("Bond market return: 3% annually")
+        st.write("Inflation rate: 2% annually")
+        st.write("Consistent annual contributions")
+        st.write("No major market disruptions")
+    
+    with assumptions_col2:
+        st.subheader("Important Notes")
+        st.write("Past performance doesn't guarantee future results")
+        st.write("Market returns can vary significantly")
+        st.write("Consider tax implications of investments")
+        st.write("Review and adjust strategy regularly")
+        st.write("Consult a financial advisor for personalized advice")
+    
+    if goal_type == 'Retirement':
+        if years_to_goal > 30:
+            st.info("With over 30 years until retirement, you can leverage compound growth and manage market volatility effectively.")
+        elif years_to_goal < 10:
+            st.warning("With a limited time horizon, consider increasing contributions or adjusting your retirement timeline for better outcomes.")
+    elif goal_type == 'Home Purchase':
+        if years_to_goal < 3:
+            st.info("For funds needed within 3 years, consider a high-yield savings account or CDs to reduce market risk.")
+    
+    if savings_rate < 0.10:
+        st.warning("A low savings rate may hinder progress; consider increasing to 10-15% or more for better outcomes.")
+    elif savings_rate > 0.20:
+        st.success("Your high savings rate positions you well for building wealth efficiently.")
+
+if __name__ == "__main__":
+    main()
